@@ -131,8 +131,13 @@
             >
               <div
                 :class="getStepColor(index)"
-                class="rounded-t-lg transition-all duration-300 flex items-end justify-center text-white font-bold px-2 lg:px-4 shadow-lg text-xs lg:text-base"
-                :style="{ height: `${getBarHeight(num)}px`, width: '50px' }"
+                class="rounded-t-lg transition-all duration-300 flex items-end justify-center text-white font-bold shadow-lg"
+                :style="{ 
+                  height: `${getBarHeight(num)}px`, 
+                  width: getBarWidth(),
+                  fontSize: getFontSize(),
+                  padding: getBarPadding()
+                }"
               >
                 {{ num }}
               </div>
@@ -565,6 +570,39 @@ const getStepColor = (index) => {
 const getBarHeight = (num) => {
   const maxNum = Math.max(...displayArray.value);
   return (num / maxNum) * 150 + 50;
+};
+
+const getBarWidth = () => {
+  const count = displayArray.value.length;
+  // Only apply dynamic width on larger screens (lg breakpoint)
+  if (window.innerWidth >= 1024) {
+    if (count <= 10) return '50px';
+    if (count <= 20) return '35px';
+    if (count <= 30) return '25px';
+    return '20px';
+  }
+  return '50px'; // Default width for mobile
+};
+
+const getFontSize = () => {
+  const count = displayArray.value.length;
+  if (window.innerWidth >= 1024) {
+    if (count <= 10) return '1rem';
+    if (count <= 20) return '0.875rem';
+    if (count <= 30) return '0.75rem';
+    return '0.625rem';
+  }
+  return '0.75rem';
+};
+
+const getBarPadding = () => {
+  const count = displayArray.value.length;
+  if (window.innerWidth >= 1024) {
+    if (count <= 10) return '0.5rem 1rem';
+    if (count <= 20) return '0.25rem 0.5rem';
+    return '0.25rem 0.25rem';
+  }
+  return '0.5rem';
 };
 
 // Watch for play state changes
