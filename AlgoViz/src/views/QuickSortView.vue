@@ -2,10 +2,10 @@
   <div class="min-h-screen min-w-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 lg:p-8 overflow-x-hidden">
     <div class="w-full mx-auto">
       <h1 class="text-3xl lg:text-4xl font-bold text-white mb-2 text-center">
-        Algorithm Visualizer
+        Sorting Algorithms
       </h1>
       <p class="text-sm lg:text-base text-slate-300 text-center mb-6 lg:mb-8">
-        Step-by-step visualization for teaching sorting algorithms
+        Interactive visualization of sorting algorithms including Quicksort
       </p>
 
       <!-- Algorithm Selection -->
@@ -59,14 +59,14 @@
         
         <div class="flex flex-col sm:flex-row gap-2 mb-4">
           <input
-            v-model.number="inputValue"
-            type="number"
-            @keyup.enter="handleAddNumber"
-            placeholder="Enter a number"
+            v-model="inputValue"
+            type="text"
+            @keyup.enter="handleAddInput"
+            placeholder="Enter a number or array [1, 2, 3]"
             class="flex-1 px-3 lg:px-4 py-2 rounded-lg bg-white/20 text-white placeholder-slate-400 border border-white/30 focus:outline-none focus:ring-2 focus:ring-purple-500 text-sm lg:text-base"
           />
           <button
-            @click="handleAddNumber"
+            @click="handleAddInput"
             class="px-4 lg:px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2 text-sm lg:text-base whitespace-nowrap"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -307,7 +307,7 @@ class QuicksortVisualizer {
         array: [...arr],
         indices: [],
         subarray: { low, high },
-        description: `📍 Divide: Working on subarray from index ${low} to ${high} → [${arr.slice(low, high + 1).join(', ')}]`
+        description: `Divide: Working on subarray from index ${low} to ${high} → [${arr.slice(low, high + 1).join(', ')}]`
       });
       
       const pivotIdx = this.partition(arr, low, high);
@@ -318,9 +318,10 @@ class QuicksortVisualizer {
         array: [...arr],
         indices: [pivotIdx],
         subarray: { low, high },
-        description: `✓ Partition complete! Pivot ${arr[pivotIdx]} is now at position ${pivotIdx}. Left: [${low}:${pivotIdx-1}], Right: [${pivotIdx+1}:${high}]`
+        description: `Partition complete! Pivot ${arr[pivotIdx]} is now at position ${pivotIdx}. Left: [${low}:${pivotIdx-1}], Right: [${pivotIdx+1}:${high}]`
       });
-      
+
+      //recursive calls
       this.quicksort(arr, low, pivotIdx - 1);
       this.quicksort(arr, pivotIdx + 1, high);
     } else if (low === high) {
@@ -329,7 +330,7 @@ class QuicksortVisualizer {
         array: [...arr],
         indices: [low],
         subarray: { low, high },
-        description: `✓ Single element at index ${low} (value: ${arr[low]}) is already sorted`
+        description: `Single element at index ${low} (value: ${arr[low]}) is already sorted`
       });
     }
   }
@@ -409,7 +410,7 @@ class QuicksortVisualizer {
         }
       }
     }
-
+    //put pivot in place
     const finalPivotValue = arr[high];
     const finalSwapValue = arr[i + 1];
     [arr[i + 1], arr[high]] = [arr[high], arr[i + 1]];
@@ -443,12 +444,41 @@ const displayArray = computed(() =>
 );
 
 // Methods
-const handleAddNumber = () => {
-  const num = inputValue.value;
-  if (!isNaN(num) && num !== '') {
-    array.value.push(Number(num));
-    inputValue.value = '';
-    resetVisualization();
+const handleAddInput = () => {
+  const input = inputValue.value.trim();
+  if (!input) return;
+  
+  // Check if input looks like an array [1, 2, 3]
+  if (input.startsWith('[') && input.endsWith(']')) {
+    try {
+      // Remove brackets and parse comma-separated values
+      const content = input.slice(1, -1);
+      const numbers = content.split(',')
+        .map(s => s.trim())
+        .filter(s => s !== '')
+        .map(s => {
+          const num = Number(s);
+          if (isNaN(num)) throw new Error('Invalid number');
+          return num;
+        });
+      
+      if (numbers.length > 0) {
+        array.value = [...array.value, ...numbers];
+        inputValue.value = '';
+        resetVisualization();
+      }
+    } catch (e) {
+      // Invalid array format, do nothing
+      alert('Invalid array format. Use: [1, 2, 3]');
+    }
+  } else {
+    // Try to parse as single number
+    const num = Number(input);
+    if (!isNaN(num) && input !== '') {
+      array.value.push(num);
+      inputValue.value = '';
+      resetVisualization();
+    }
   }
 };
 
