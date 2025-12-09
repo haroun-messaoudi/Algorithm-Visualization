@@ -35,10 +35,10 @@ const toggleMobileMenu = () => {
               v-for="item in navItems"
               :key="item.path"
               :to="item.path"
-              class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200"
+              class="px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 border-2"
               :class="route.path === item.path 
-                ? 'bg-white/20 text-white border border-white/30' 
-                : 'text-slate-300 hover:bg-white/10 hover:text-white'"
+                ? 'bg-purple-600 hover:bg-purple-700 text-white border-purple-400 shadow-lg shadow-purple-500/50' 
+                : 'text-white bg-slate-700/40 border-slate-600/50 hover:bg-slate-600/60 hover:border-slate-500'"
             >
               {{ item.name }}
             </router-link>
@@ -49,7 +49,7 @@ const toggleMobileMenu = () => {
         <div class="md:hidden">
           <button
             @click="toggleMobileMenu"
-            class="inline-flex items-center justify-center p-2 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white transition-colors"
+            class="inline-flex items-center justify-center p-2 rounded-lg text-white bg-slate-700/40 border border-slate-600/50 hover:bg-slate-600/60 hover:border-slate-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-purple-400 transition-colors"
           >
             <svg
               v-if="!mobileMenuOpen"
@@ -92,10 +92,10 @@ const toggleMobileMenu = () => {
             :key="item.path"
             :to="item.path"
             @click="mobileMenuOpen = false"
-            class="flex items-center gap-3 px-3 py-2 rounded-lg text-base font-medium transition-all duration-200"
+            class="flex items-center gap-3 px-3 py-2 rounded-lg text-base font-medium transition-all duration-200 border-2"
             :class="route.path === item.path 
-              ? 'bg-white/20 text-white border border-white/30' 
-              : 'text-slate-300 hover:bg-white/10 hover:text-white'"
+              ? 'bg-purple-600 hover:bg-purple-700 text-white border-purple-400 shadow-lg shadow-purple-500/50' 
+              : 'text-white bg-slate-700/40 border-slate-600/50 hover:bg-slate-600/60 hover:border-slate-500'"
           >
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" :d="item.icon" />
