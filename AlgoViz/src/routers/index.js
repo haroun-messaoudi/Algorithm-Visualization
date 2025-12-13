@@ -2,7 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import QuickSortView from '../views/QuickSortView.vue'
 import BellmanShortestPath from '../views/BellmanShortPath.vue'
-
+import RecursiveLargestFirstColoringView from '../views/RecursiveLargestFirstColoringView.vue'
 
 const routes = [
   {
@@ -23,12 +23,12 @@ const routes = [
      component: BellmanShortestPath,
      meta: { title: 'Shortest Path - Algorithm Visualizer' }
    },
-  //  {
-  //    path: '/coloring',
-  //    name: 'Coloring',
-  //    component: Coloring,
-  //    meta: { title: 'Graph Coloring - Algorithm Visualizer' }
-  //  },
+    {
+      path: '/coloring',
+      name: 'Coloring',
+      component: RecursiveLargestFirstColoringView,
+      meta: { title: 'Graph Coloring - Algorithm Visualizer' }
+    },
   {
     path: '/:pathMatch(.*)*',
     redirect: '/'

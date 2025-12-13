@@ -14,14 +14,14 @@ const algorithms = ref([
     route: '/sorting',
     features: ['Quicksort', 'Multiple Pivot Strategies', 'Step-by-step Visualization']
   },
-  {
+    {
     id: 'shortest-path',
     title: 'Shortest Path',
-    description: 'Find the shortest path between two nodes in a graph using various pathfinding algorithms.',
+    description: 'Find the shortest path between two nodes in a graph using different algorithms. This view demonstrates the Bellman algorithm for DAGs (uses topological sort).',
     icon: 'M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7',
     color: 'from-green-500 to-emerald-500',
     route: '/shortest-path',
-    features: ['Dijkstra\'s Algorithm', 'A* Search', 'Interactive Graph']
+    features: ['Bellman (DAG) Shortest Path', 'Topological Sort Visualization', 'Supports negative edge weights (no cycles)', 'Interactive Graph']
   },
   {
     id: 'coloring',
@@ -30,7 +30,14 @@ const algorithms = ref([
     icon: 'M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01',
     color: 'from-purple-500 to-pink-500',
     route: '/coloring',
-    features: ['Greedy Coloring', 'Chromatic Number', 'Interactive Graph']
+    features: [
+      'Recursive Largest-First (RLF) heuristic',
+      'Greedy graph coloring',
+      'Candidate set visualization',
+      'Step-by-step coloring',
+      'Chromatic number estimation',
+      'Interactive graph'
+    ]
   }
 ]);
 

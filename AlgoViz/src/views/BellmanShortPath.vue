@@ -1,342 +1,284 @@
 <template>
-  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 lg:p-8">
+  <div class="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
     <div class="max-w-7xl mx-auto">
-      <h1 class="text-3xl lg:text-4xl font-bold text-white mb-2 text-center">
-        DAG Shortest Path (Bellman)
-      </h1>
-      <p class="text-sm lg:text-base text-slate-300 text-center mb-6 lg:mb-8">
-        Visualize shortest paths in Directed Acyclic Graphs with topological sorting
-      </p>
-
-      <!-- Error Display -->
-      <div v-if="error" class="bg-red-500/20 border-2 border-red-500 rounded-xl p-6 mb-4">
-        <div class="flex items-start gap-3">
-          <div class="text-red-400 text-2xl flex-shrink-0">⚠️</div>
-          <div class="flex-1">
-            <h3 class="text-lg font-bold text-red-200 mb-2">Error</h3>
-            <pre class="text-sm text-red-100 whitespace-pre-wrap font-sans leading-relaxed">{{ error }}</pre>
-          </div>
-        </div>
-      </div>
-
-      <!-- Graph Input Section -->
-      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-        <!-- Add Node -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 lg:p-6 border border-white/20">
-          <h2 class="text-lg lg:text-xl font-semibold text-white mb-4">Add Node</h2>
-          <div class="flex gap-2">
-            <input
-              v-model="newNodeName"
-              @keypress.enter="handleAddNode"
-              placeholder="Node name (A, B, C...)"
-              class="flex-1 px-4 py-2 rounded-lg bg-white text-slate-900 placeholder-slate-500 border-2 border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 dark:border-slate-600 dark:focus:ring-purple-400"
-            />
-            <button
-              @click="handleAddNode"
-              class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-purple-500 shadow-lg hover:shadow-purple-600/50 active:scale-95"
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <line x1="12" y1="5" x2="12" y2="19"></line>
-                <line x1="5" y1="12" x2="19" y2="12"></line>
-              </svg>
-              Add
-            </button>
-          </div>
-          <div class="mt-4 flex flex-wrap gap-2">
-            <div v-for="node in nodes" :key="node.name" class="flex items-center gap-2 px-3 py-1.5 bg-white/20 rounded-lg text-white">
-              <span class="font-semibold">{{ node.name }}</span>
-              <button @click="handleDeleteNode(node.name)" class="text-red-400 hover:text-red-300">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
+      <h1 class="text-4xl font-bold text-white mb-2 text-center">DAG Shortest Path Visualizer</h1>
+      <p class="text-purple-200 text-center mb-6">Visualize shortest paths in Directed Acyclic Graphs</p>
+      
+      <!-- Weight Editor Modal -->
+      <div v-if="showWeightEditor" class="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
+        <div class="bg-slate-800 rounded-xl p-6 max-w-md w-full border border-purple-500/50">
+          <h3 class="text-xl font-semibold text-white mb-4">Set Edge Weight</h3>
+          <p class="text-purple-200 mb-2">Edge: {{ editingEdge?.from }} → {{ editingEdge?.to }}</p>
+          <p class="text-sm text-purple-300 mb-4">Current weight: {{ editingEdge?.weight || 1 }}</p>
+          
+          <div class="space-y-3">
+            <div class="flex gap-2">
+              <input
+                v-model.number="tempWeight"
+                type="number"
+                placeholder="Enter weight"
+                min="1"
+                max="100"
+                class="flex-1 px-3 py-2 bg-slate-700 text-white rounded-lg border border-purple-500/50 outline-none focus:ring-2 focus:ring-purple-500"
+                @keyup.enter="saveEdgeWeight"
+              />
+              <button @click="incrementWeight" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">+1</button>
+              <button @click="decrementWeight" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">-1</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-2">
+              <button
+                v-for="weight in quickWeights"
+                :key="weight"
+                @click="setQuickWeight(weight)"
+                class="py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg transition-colors"
+              >
+                {{ weight }}
               </button>
             </div>
-          </div>
-        </div>
-
-        <!-- Add Edge -->
-        <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 lg:p-6 border border-white/20">
-          <h2 class="text-lg lg:text-xl font-semibold text-white mb-4">Add Edge</h2>
-          <div class="grid grid-cols-3 gap-2 mb-2">
-            <input
-              v-model="newEdgeFrom"
-              placeholder="From"
-              class="px-3 py-2 rounded-lg bg-white text-slate-900 placeholder-slate-500 border-2 border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 dark:border-slate-600 dark:focus:ring-purple-400"
-            />
-            <input
-              v-model="newEdgeTo"
-              placeholder="To"
-              class="px-3 py-2 rounded-lg bg-white text-slate-900 placeholder-slate-500 border-2 border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 dark:border-slate-600 dark:focus:ring-purple-400"
-            />
-            <input
-              v-model="newEdgeWeight"
-              @keypress.enter="handleAddEdge"
-              placeholder="Weight"
-              type="number"
-              class="px-3 py-2 rounded-lg bg-white text-slate-900 placeholder-slate-500 border-2 border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-700 dark:text-white dark:placeholder-slate-400 dark:border-slate-600 dark:focus:ring-purple-400"
-            />
-          </div>
-          <button
-            @click="handleAddEdge"
-            class="w-full px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors border border-green-500 shadow-lg hover:shadow-green-600/50 active:scale-95"
-          >
-            Add Edge
-          </button>
-          <div class="mt-4 space-y-1 max-h-32 overflow-y-auto">
-            <div v-for="(edge, i) in edges" :key="i" class="flex items-center justify-between px-3 py-1.5 bg-white/20 rounded-lg text-white text-sm">
-              <span>{{ edge.from }} → {{ edge.to }} ({{ edge.weight }})</span>
-              <button @click="handleDeleteEdge(edge.from, edge.to)" class="text-red-400 hover:text-red-300">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <polyline points="3 6 5 6 21 6"></polyline>
-                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                </svg>
+            
+            <div class="flex gap-2 mt-4">
+              <button @click="saveEdgeWeight" class="flex-1 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold">
+                Save
+              </button>
+              <button @click="cancelWeightEdit" class="flex-1 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold">
+                Cancel
               </button>
             </div>
           </div>
         </div>
       </div>
-
-      <!-- Source and Target Selection -->
-      <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 lg:p-6 mb-4 border border-white/20">
-        <h2 class="text-lg lg:text-xl font-semibold text-white mb-4">Configuration</h2>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-sm font-medium text-slate-300 mb-2">Source Node</label>
-            <select
-              v-model="sourceNode"
-              class="w-full px-4 py-2 rounded-lg bg-white text-slate-900 border-2 border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-700 dark:text-white dark:border-slate-600 dark:focus:ring-purple-400"
-            >
-              <option value="" class="bg-white text-slate-900 dark:bg-slate-700 dark:text-white">Select source</option>
-              <option v-for="node in nodes" :key="node.name" :value="node.name" class="bg-white text-slate-900 dark:bg-slate-700 dark:text-white">
-                {{ node.name }}
-              </option>
-            </select>
+      
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div class="lg:col-span-2 space-y-6">
+          <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <canvas 
+              ref="canvasRef" 
+              width="800" 
+              height="600" 
+              class="w-full h-auto bg-slate-800/50 rounded-lg cursor-crosshair"
+              @click="handleCanvasClick"
+            ></canvas>
           </div>
-          <div>
-            <label class="block text-sm font-medium text-slate-300 mb-2">Target Node (Optional)</label>
-            <select
-              v-model="targetNode"
-              class="w-full px-4 py-2 rounded-lg bg-white text-slate-900 border-2 border-slate-300 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 dark:bg-slate-700 dark:text-white dark:border-slate-600 dark:focus:ring-purple-400"
-            >
-              <option value="" class="bg-white text-slate-900 dark:bg-slate-700 dark:text-white">All nodes</option>
-              <option v-for="node in nodes" :key="node.name" v-show="node.name !== sourceNode" :value="node.name" class="bg-white text-slate-900 dark:bg-slate-700 dark:text-white">
-                {{ node.name }}
-              </option>
-            </select>
-          </div>
-          <div class="flex items-end gap-2">
-            <button
-              @click="generateSteps"
-              :disabled="nodes.length === 0 || !sourceNode"
-              class="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-slate-500 disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors border border-green-500 hover:border-green-400 shadow-lg hover:shadow-green-600/50 active:scale-95"
-            >
-              Run Algorithm
-            </button>
-            <button
-              @click="handleReset"
-              class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-colors border border-red-500 hover:border-red-400 shadow-lg hover:shadow-red-600/50 active:scale-95"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polyline points="23 4 23 10 17 10"></polyline>
-                <path d="M20.49 15a9 9 0 1 1-2-8.83"></path>
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Visualization Canvas -->
-      <div class="bg-white/10 backdrop-blur-lg rounded-xl p-4 lg:p-6 mb-4 border border-white/20">
-        <h2 class="text-lg lg:text-xl font-semibold text-white mb-4">Graph Visualization</h2>
-        <div class="bg-slate-800 rounded-lg overflow-hidden w-full" style="aspect-ratio: 6/5">
-          <canvas
-            ref="canvasRef"
-            width="800"
-            height="600"
-            class="w-full h-full block"
-            style="image-rendering: high-quality"
-          />
-        </div>
-      </div>
-
-      <!-- Step Description and Controls -->
-      <div v-if="steps.length > 0" class="bg-white/10 backdrop-blur-lg rounded-xl p-4 lg:p-6 border border-white/20">
-        <h2 class="text-lg lg:text-xl font-semibold text-white mb-4">Algorithm Steps</h2>
-        
-        <div v-if="currentStepData" class="bg-white/20 rounded-lg p-4 mb-4">
-          <p class="text-white whitespace-pre-line">{{ currentStepData.description }}</p>
-        </div>
-
-        <div class="space-y-4">
-          <div class="flex items-center gap-2">
-            <button
-              @click="stepBackward"
-              :disabled="currentStep === 0"
-              class="px-4 py-2 bg-slate-600 hover:bg-slate-700 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg transition-colors border border-slate-500 hover:border-slate-400 active:scale-95"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="19 20 9 12 19 4 19 20"></polygon>
-                <line x1="5" y1="4" x2="5" y2="20"></line>
-              </svg>
-            </button>
+          
+          <div v-if="steps.length > 0" class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <div class="flex items-center justify-between mb-4">
+              <h3 class="text-xl font-semibold text-white">Playback Controls</h3>
+              <span class="text-purple-200">Step {{ currentStep + 1 }} / {{ steps.length }}</span>
+            </div>
             
-            <button
-              @click="togglePlayPause"
-              class="px-6 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2 border border-purple-500 shadow-lg hover:shadow-purple-600/50 active:scale-95"
-            >
-              <svg v-if="!isPlaying" width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
-              </svg>
-              <svg v-else width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-                <rect x="6" y="4" width="4" height="16"></rect>
-                <rect x="14" y="4" width="4" height="16"></rect>
-              </svg>
-              {{ isPlaying ? 'Pause' : 'Play' }}
-            </button>
+            <div class="flex gap-2 mb-4">
+              <button @click="currentStep = 0" class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">⏮</button>
+              <button @click="stepBackward" class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">◀</button>
+              <button @click="togglePlayPause" class="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium transition-colors">
+                {{ isPlaying ? '⏸ Pause' : '▶ Play' }}
+              </button>
+              <button @click="stepForward" class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">▶</button>
+              <button @click="currentStep = steps.length - 1" class="p-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">⏭</button>
+            </div>
             
-            <button
-              @click="stepForward"
-              :disabled="currentStep >= steps.length - 1"
-              class="px-4 py-2 bg-slate-600 hover:bg-slate-700 disabled:bg-slate-800 disabled:cursor-not-allowed text-white rounded-lg transition-colors border border-slate-500 hover:border-slate-400 active:scale-95"
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <polygon points="5 4 15 12 5 20 5 4"></polygon>
-                <line x1="19" y1="4" x2="19" y2="20"></line>
-              </svg>
-            </button>
-
-            <div class="flex-1 flex items-center gap-2 ml-4">
+            <!-- Speed Control -->
+            <div class="flex items-center gap-3 mb-4">
               <label class="text-white text-sm whitespace-nowrap">Speed:</label>
               <input
                 v-model.number="speed"
                 type="range"
-                min="200"
-                max="2000"
-                step="200"
+                min="500"
+                max="3000"
+                step="500"
                 class="flex-1"
               />
-              <span class="text-white text-sm min-w-[40px]">
-                {{ ((2000 - speed) / 200 + 1).toFixed(0) }}x
+              <span class="text-white text-sm min-w-[40px] text-right">
+                {{ (3500 - speed) / 500 }}x
               </span>
             </div>
-          </div>
-
-          <div class="text-center text-slate-300">
-            Step {{ currentStep + 1 }} of {{ steps.length }}
-          </div>
-        </div>
-
-        <!-- Legend -->
-        <div class="mt-6 grid grid-cols-2 lg:grid-cols-4 gap-3">
-          <div class="flex items-center gap-2">
-            <div class="w-4 h-4 bg-purple-500 rounded-full"></div>
-            <span class="text-sm text-slate-300">Source</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="w-4 h-4 bg-orange-500 rounded-full"></div>
-            <span class="text-sm text-slate-300">Processing</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="w-4 h-4 bg-green-500 rounded-full"></div>
-            <span class="text-sm text-slate-300">In Path</span>
-          </div>
-          <div class="flex items-center gap-2">
-            <div class="w-4 h-4 bg-blue-500 rounded-full"></div>
-            <span class="text-sm text-slate-300">Other</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Algorithm State Iteration Table -->
-      <div v-if="steps.length > 0" class="bg-white/10 backdrop-blur-lg rounded-xl p-4 lg:p-6 border border-white/20">
-        <h2 class="text-lg lg:text-xl font-semibold text-white mb-4">Algorithm Progress: Distance from {{ sourceNode }} to Each Node</h2>
-        
-        <div class="overflow-x-auto">
-          <table class="text-xs border-collapse bg-slate-900/30 rounded-lg overflow-hidden">
-            <!-- Table Header: Node columns -->
-            <thead>
-              <tr>
-                <th class="px-3 py-2 text-white font-semibold bg-purple-900/50 border border-slate-700 min-w-[80px]">
-                  <div class="text-xs">Iteration</div>
-                </th>
-                <!-- Each node column -->
-                <th 
-                  v-for="node in nodes"
-                  :key="`node-col-${node.name}`"
-                  class="px-3 py-2 text-white font-semibold border border-slate-700 text-center min-w-[70px]"
-                  :class="node.name === sourceNode ? 'bg-purple-900/50' : 'bg-slate-700/50'"
-                >
-                  <div style="writing-mode: vertical-rl; transform: rotate(180deg);" class="text-xs whitespace-nowrap">
-                    {{ node.name }}
-                  </div>
-                </th>
-              </tr>
-            </thead>
             
-            <!-- Table Body: Each iteration row -->
-            <tbody>
-              <!-- Initial state row -->
-              <tr class="transition-all duration-300">
-                <td class="px-3 py-2 text-white font-semibold bg-purple-900/50 border border-slate-700 text-center">
-                  <span class="text-xs font-mono">0</span>
-                </td>
-                <td 
-                  v-for="node in nodes"
-                  :key="`init-${node.name}`"
-                  class="px-3 py-2 border border-slate-700 text-center transition-all duration-300 bg-slate-800"
-                >
-                  <span 
-                    class="inline-block px-2 py-1 rounded font-mono font-semibold transition-colors duration-300"
-                    :class="node.name === sourceNode ? 'bg-purple-600/50 text-purple-300' : 'bg-red-900/50 text-red-300'"
-                  >
-                    {{ node.name === sourceNode ? '0' : '∞' }}
-                  </span>
-                </td>
-              </tr>
-              
-              <!-- Each main iteration (processing a node and its successors) -->
-              <tr 
-                v-for="(iteration, iterIdx) in mainIterations"
-                :key="`iter-${iterIdx}`"
-                class="transition-all duration-300"
-              >
-                <!-- Iteration number and node being processed -->
-                <td class="px-3 py-2 text-white font-semibold bg-purple-900/50 border border-slate-700 text-center">
-                  <div class="text-xs font-mono">{{ iterIdx + 1 }}</div>
-                  <div class="text-xs text-slate-300">→ {{ iteration.nodeProcessed }}</div>
-                </td>
-                
-                <!-- Distance for each node after processing -->
-                <td 
-                  v-for="node in nodes"
-                  :key="`${iterIdx}-${node.name}`"
-                  class="px-3 py-2 border border-slate-700 text-center transition-all duration-300"
-                  :class="currentIterationIndex === iterIdx ? 'bg-green-900/30' : 'bg-slate-800'"
-                >
-                  <span 
-                    class="inline-block px-2 py-1 rounded font-mono font-semibold transition-colors duration-300"
-                    :class="{
-                      'bg-green-900/50 text-green-300': iteration.distances[node.name] !== Infinity && iteration.distances[node.name] !== undefined,
-                      'bg-red-900/50 text-red-300': iteration.distances[node.name] === Infinity,
-                      'bg-slate-700 text-slate-400': iteration.distances[node.name] === undefined
-                    }"
-                  >
-                    {{ iteration.distances[node.name] === Infinity ? '∞' : iteration.distances[node.name] ?? '-' }}
-                  </span>
-                </td>
-              </tr>
-            </tbody>
-          </table>
+            <div class="bg-slate-800/50 rounded-lg p-4">
+              <p class="text-white whitespace-pre-wrap">{{ currentStepData?.description }}</p>
+            </div>
+            
+            <div v-if="tableIterations.length > 0" class="mt-4 overflow-x-auto">
+              <table class="w-full text-sm">
+                <thead>
+                  <tr class="border-b border-purple-400">
+                    <th class="text-left p-2 text-purple-200">Iteration</th>
+                    <th class="text-left p-2 text-purple-200">Edge</th>
+                    <th v-for="n in nodes" :key="n.id" class="text-center p-2 text-purple-200">{{ n.label }}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="(iter, idx) in tableIterations" :key="idx" 
+                      :class="['border-b border-slate-600 transition-colors', idx === currentTableIterationIndex ? 'bg-purple-600/40 ring-2 ring-purple-400' : '']">
+                    <td class="p-2 text-white">{{ iter.iterationNumber }}</td>
+                    <td class="p-2 text-white">{{ iter.description }}</td>
+                    <td v-for="n in nodes" :key="n.id" 
+                        :class="['text-center p-2', iter.updatedNodes.includes(n.label) ? 'bg-yellow-600/30 text-yellow-200 font-bold ring-2 ring-yellow-400 rounded' : 'text-white']">
+                      {{ iter.distances[n.label] === Infinity ? '∞' : iter.distances[n.label] }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
         </div>
-
-        <!-- Legend -->
-        <div class="text-xs text-slate-400 space-y-1 mt-4">
-          <p><span class="text-green-400 font-semibold">Green cells:</span> Distances that were updated in that iteration</p>
-          <p><span class="text-red-400 font-semibold">Red cells (∞):</span> Nodes not yet reachable from source</p>
-          <p><span class="text-slate-400 font-semibold">Current iteration:</span> Highlighted in green background</p>
-          <p><span class="text-purple-400 font-semibold">Row 0:</span> Initial state with source node at distance 0, all others at ∞</p>
-          <p><span class="text-purple-400 font-semibold">Rows 1+:</span> Distance state after processing each node and relaxing its successors</p>
+        
+        <div class="space-y-6">
+          <!-- Mode Selection -->
+          <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <h3 class="text-xl font-semibold text-white mb-4">Construction Mode</h3>
+            <div class="space-y-3">
+              <button @click="toggleMode" :class="[
+                'w-full py-3 px-4 rounded-lg font-semibold transition-colors text-lg',
+                mode === 'node' ? 'bg-green-600 hover:bg-green-700' : 
+                mode === 'edge' ? 'bg-blue-600 hover:bg-blue-700' :
+                'bg-yellow-600 hover:bg-yellow-700',
+                'text-white'
+              ]">
+                {{ mode === 'node' ? 'Add Nodes Mode' : 
+                   mode === 'edge' ? 'Add Edges Mode' : 
+                   'Edit Weights Mode' }}
+              </button>
+              
+              <div v-if="mode === 'node'" class="text-sm text-purple-200 bg-green-900/30 p-3 rounded-lg">
+                Click anywhere on the canvas to add a node
+              </div>
+              
+              <div v-if="mode === 'edge'" class="text-sm text-purple-200 bg-blue-900/30 p-3 rounded-lg">
+                Click two nodes to connect them with an edge
+              </div>
+              
+              <div v-if="mode === 'weight'" class="text-sm text-purple-200 bg-yellow-900/30 p-3 rounded-lg">
+                Click on an edge weight to edit it
+              </div>
+              
+              <button @click="generateRandomDAG" class="w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-semibold transition-colors text-lg">
+                Generate Random DAG
+              </button>
+            </div>
+          </div>
+          
+          <!-- Quick Add Node -->
+          <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <h3 class="text-xl font-semibold text-white mb-4">Quick Add Node</h3>
+            <div class="space-y-3">
+              <div class="flex gap-2">
+                <input
+                  v-model="newNodeLabel"
+                  @keypress.enter="handleAddNodeWithLabel"
+                  type="text"
+                  placeholder="Node label (optional)"
+                  class="flex-1 px-3 py-2 bg-slate-800/50 text-white rounded-lg border-none outline-none focus:ring-2 focus:ring-purple-500"
+                />
+                <button @click="handleAddNodeWithLabel" class="p-2 bg-green-600 hover:bg-green-700 text-white rounded-lg">+</button>
+              </div>
+              <p class="text-xs text-purple-200">
+                Leave empty for auto-generated label, or enter custom label
+              </p>
+            </div>
+          </div>
+          
+          <!-- Add Edge (Manual Entry) -->
+          <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <h3 class="text-xl font-semibold text-white mb-4">Add Edge (Manual)</h3>
+            <div class="space-y-2">
+              <select v-model="newEdgeFrom" class="w-full px-3 py-2 bg-slate-800/50 text-white rounded-lg border-none outline-none focus:ring-2 focus:ring-purple-500">
+                <option value="">From Node</option>
+                <option v-for="n in nodes" :key="n.id" :value="n.label">{{ n.label }}</option>
+              </select>
+              <select v-model="newEdgeTo" class="w-full px-3 py-2 bg-slate-800/50 text-white rounded-lg border-none outline-none focus:ring-2 focus:ring-purple-500">
+                <option value="">To Node</option>
+                <option v-for="n in nodes" :key="n.id" :value="n.label">{{ n.label }}</option>
+              </select>
+              <div class="flex gap-2">
+                <input v-model="newEdgeWeight" type="number" placeholder="Weight" class="flex-1 px-3 py-2 bg-slate-800/50 text-white rounded-lg border-none outline-none focus:ring-2 focus:ring-purple-500" />
+                <button @click="decrementNewWeight" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">-1</button>
+                <button @click="incrementNewWeight" class="px-3 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg">+1</button>
+              </div>
+              <button @click="handleAddEdgeManually" class="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-semibold">Add Edge</button>
+            </div>
+          </div>
+          
+          <!-- Edge Weight Quick Set -->
+          <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <h3 class="text-xl font-semibold text-white mb-4">Quick Set Edge Weight</h3>
+            <div class="space-y-2">
+              <select v-model="quickEditEdgeFrom" class="w-full px-3 py-2 bg-slate-800/50 text-white rounded-lg border-none outline-none focus:ring-2 focus:ring-purple-500">
+                <option value="">Select Edge</option>
+                <option v-for="e in edges" :key="`${e.from}-${e.to}`" :value="`${e.from}|${e.to}`">
+                  {{ e.from }} → {{ e.to }} (Current: {{ e.weight }})
+                </option>
+              </select>
+              <div class="flex gap-2">
+                <input v-model="quickEditWeight" type="number" placeholder="New weight" class="flex-1 px-3 py-2 bg-slate-800/50 text-white rounded-lg border-none outline-none focus:ring-2 focus:ring-purple-500" />
+                <button @click="updateQuickWeight" class="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold">Set</button>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Algorithm Settings -->
+          <div class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <h3 class="text-xl font-semibold text-white mb-4">Algorithm Settings</h3>
+            <div class="space-y-3">
+              <div>
+                <label class="block text-purple-200 mb-1">Source Node</label>
+                <select v-model="sourceNode" class="w-full px-3 py-2 bg-slate-800/50 text-white rounded-lg border-none outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="">Select source</option>
+                  <option v-for="n in nodes" :key="n.id" :value="n.label">{{ n.label }}</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-purple-200 mb-1">Target Node (Optional)</label>
+                <select v-model="targetNode" class="w-full px-3 py-2 bg-slate-800/50 text-white rounded-lg border-none outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="">Select target</option>
+                  <option v-for="n in nodes" :key="n.id" :value="n.label">{{ n.label }}</option>
+                </select>
+              </div>
+              <button @click="generateSteps" class="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold text-lg">Run Algorithm</button>
+              <button @click="handleReset" class="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold text-lg">Reset All</button>
+            </div>
+          </div>
+          
+          <div v-if="error" class="bg-red-500/20 border border-red-500 rounded-xl p-4">
+            <p class="text-red-200 whitespace-pre-wrap">{{ error }}</p>
+          </div>
+          
+          <!-- Instructions -->
+          <div class="bg-blue-500/20 border border-blue-500/50 rounded-xl p-4">
+            <h3 class="text-lg font-semibold text-blue-200 mb-2">How to Use</h3>
+            <ul class="text-blue-100 text-sm space-y-1">
+              <li>• <span class="font-bold">Node Mode:</span> Click canvas to place nodes</li>
+              <li>• <span class="font-bold">Edge Mode:</span> Click two nodes to connect</li>
+              <li>• <span class="font-bold">Weight Mode:</span> Click edge weights to edit</li>
+              <li>• Use manual inputs for precise control</li>
+              <li>• Random DAG creates a valid topological ordering</li>
+              <li>• Run algorithm to visualize shortest paths</li>
+            </ul>
+          </div>
+          
+          <div v-if="nodes.length > 0" class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <h3 class="text-xl font-semibold text-white mb-4">Nodes ({{ nodes.length }})</h3>
+            <div class="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto">
+              <div v-for="n in nodes" :key="n.id" class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg">
+                <span class="text-white font-semibold text-sm">{{ n.label }}</span>
+                <button @click="handleDeleteNode(n.id)" class="p-1 text-red-400 hover:text-red-300 text-xs">🗑</button>
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="edges.length > 0" class="bg-white/10 backdrop-blur-lg rounded-xl p-6 shadow-2xl border border-white/20">
+            <h3 class="text-xl font-semibold text-white mb-4">Edges ({{ edges.length }})</h3>
+            <div class="space-y-2 max-h-48 overflow-y-auto">
+              <div v-for="(e, idx) in edges" :key="idx" class="flex items-center justify-between bg-slate-800/50 p-2 rounded-lg">
+                <span class="text-white text-sm">{{ e.from }} → {{ e.to }} 
+                  <span class="text-purple-300 font-bold">({{ e.weight }})</span>
+                </span>
+                <div class="flex gap-1">
+                  <button @click="editEdgeWeight(e)" class="p-1 text-yellow-400 hover:text-yellow-300 text-xs" title="Edit weight">✏️</button>
+                  <button @click="handleDeleteEdge(e.from, e.to)" class="p-1 text-red-400 hover:text-red-300 text-xs">🗑</button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -344,27 +286,37 @@
 </template>
 
 <script setup>
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 
-// Template refs
 const canvasRef = ref(null);
-
-// State management
 const nodes = ref([]);
 const edges = ref([]);
 const sourceNode = ref('');
 const targetNode = ref('');
-const newNodeName = ref('');
+const newNodeLabel = ref('');
 const newEdgeFrom = ref('');
 const newEdgeTo = ref('');
-const newEdgeWeight = ref('');
+const newEdgeWeight = ref('1');
 const steps = ref([]);
 const currentStep = ref(0);
 const isPlaying = ref(false);
 const speed = ref(1000);
 const error = ref('');
+const mode = ref('node'); // 'node', 'edge', or 'weight'
+const selectedNode = ref(null);
+const nodeCounter = ref(0);
 
-// Step types
+// Weight editing
+const showWeightEditor = ref(false);
+const editingEdge = ref(null);
+const tempWeight = ref(1);
+const quickEditEdgeFrom = ref('');
+const quickEditWeight = ref('1');
+
+const quickWeights = [1, 2, 3, 5, 10, 15, 20, 25];
+
+let playInterval = null;
+
 const STEP_TYPES = {
   INITIALIZE: 'initialize',
   TOPO_SORT: 'topo_sort',
@@ -375,239 +327,402 @@ const STEP_TYPES = {
   COMPLETE: 'complete'
 };
 
-// Computed property for current step data
 const currentStepData = computed(() => steps.value[currentStep.value]);
 
-// Extract main iterations (PROCESS_NODE steps) from all steps
-const mainIterations = computed(() => {
+const tableIterations = computed(() => {
   const iterations = [];
-  for (const step of steps.value) {
-    if (step.type === STEP_TYPES.PROCESS_NODE) {
-      iterations.push({
-        nodeProcessed: step.currentNode,
-        distances: step.distances,
-        predecessors: step.predecessors
-      });
+  const all = steps.value;
+  const currentIdx = currentStep.value;
+  let iterationCount = 1;
+  
+  for (let i = 0; i < all.length; i++) {
+    const step = all[i];
+    
+    if (step.type === STEP_TYPES.RELAX_EDGE && step.relaxingEdge) {
+      const nextStep = i + 1 < all.length ? all[i + 1] : null;
+      
+      if (nextStep) {
+        const stepIndexToCheck = nextStep.type === STEP_TYPES.UPDATE_DISTANCE ? i + 1 : i;
+        
+        // Only include iterations up to current step
+        if (stepIndexToCheck <= currentIdx) {
+          const updatedNodes = [];
+          
+          if (nextStep.type === STEP_TYPES.UPDATE_DISTANCE) {
+            updatedNodes.push(nextStep.relaxingEdge.to);
+          }
+          
+          iterations.push({
+            stepIndex: stepIndexToCheck,
+            iterationNumber: iterationCount,
+            description: `${step.relaxingEdge.from} → ${step.relaxingEdge.to}`,
+            distances: nextStep.type === STEP_TYPES.UPDATE_DISTANCE ? { ...nextStep.distances } : { ...step.distances },
+            predecessors: nextStep.type === STEP_TYPES.UPDATE_DISTANCE ? { ...nextStep.predecessors } : { ...step.predecessors },
+            updatedNodes: updatedNodes
+          });
+          
+          iterationCount++;
+        }
+      }
     }
   }
+
   return iterations;
 });
 
-// Get current iteration index based on current step
-const currentIterationIndex = computed(() => {
-  let iterCount = -1;
-  for (let i = 0; i <= currentStep.value && i < steps.value.length; i++) {
-    if (steps.value[i].type === STEP_TYPES.PROCESS_NODE) {
-      iterCount++;
-    }
-  }
-  return iterCount;
+const currentTableIterationIndex = computed(() => {
+  return tableIterations.value.length - 1;
 });
 
-// Get responsive canvas dimensions
-const getCanvasDimensions = () => {
+// Modified handleCanvasClick to support weight editing
+const handleCanvasClick = (event) => {
   const canvas = canvasRef.value;
-  if (canvas) {
-    return { width: canvas.width, height: canvas.height };
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const x = (event.clientX - rect.left) * scaleX;
+  const y = (event.clientY - rect.top) * scaleY;
+  
+  if (mode.value === 'node') {
+    addNodeAtPosition(x, y);
+  } else if (mode.value === 'edge') {
+    handleEdgeClick(x, y);
+  } else if (mode.value === 'weight') {
+    handleWeightClick(x, y);
   }
-  return { width: 800, height: 600 };
 };
 
-// Check collision between two nodes and adjust position with improved force calculation
-const adjustForCollisions = (newPos, existingNodes, minDistance = 130) => {
-  let x = newPos.x;
-  let y = newPos.y;
-  let maxIterations = 100;
-  let iteration = 0;
+// NEW: Handle clicking on edge weights
+const handleWeightClick = (x, y) => {
+  // Find if we clicked on an edge weight
+  for (const edge of edges.value) {
+    const fromNode = nodes.value.find(n => n.label === edge.from);
+    const toNode = nodes.value.find(n => n.label === edge.to);
+    if (!fromNode || !toNode) continue;
+    
+    // Calculate weight label position
+    const dx = toNode.x - fromNode.x;
+    const dy = toNode.y - fromNode.y;
+    const angle = Math.atan2(dy, dx);
+    const nodeRadius = 35;
+    
+    const startX = fromNode.x + (nodeRadius + 5) * Math.cos(angle);
+    const startY = fromNode.y + (nodeRadius + 5) * Math.sin(angle);
+    const endX = toNode.x - (nodeRadius + 10) * Math.cos(angle);
+    const endY = toNode.y - (nodeRadius + 10) * Math.sin(angle);
+    
+    const midX = (startX + endX) / 2;
+    const midY = (startY + endY) / 2;
+    const labelAngle = Math.atan2(endY - startY, endX - startX);
+    const labelX = midX - 25 * Math.sin(labelAngle);
+    const labelY = midY + 25 * Math.cos(labelAngle);
+    
+    // Check if click is within weight label bounds
+    const dx2 = x - labelX;
+    const dy2 = y - labelY;
+    const distance = Math.sqrt(dx2 * dx2 + dy2 * dy2);
+    
+    if (distance < 20) { // Clicked on weight label
+      editEdgeWeight(edge);
+      return;
+    }
+  }
   
-  while (iteration < maxIterations) {
-    let collision = false;
-    let totalForceX = 0;
-    let totalForceY = 0;
-    
-    for (const node of existingNodes) {
-      const dx = x - node.x;
-      const dy = y - node.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance < minDistance && distance > 0) {
-        collision = true;
-        // Calculate repulsive force
-        const angle = Math.atan2(dy, dx);
-        const forceMagnitude = (minDistance - distance) / minDistance;
-        totalForceX += Math.cos(angle) * forceMagnitude * 15;
-        totalForceY += Math.sin(angle) * forceMagnitude * 15;
-      }
-    }
-    
-    if (collision) {
-      x += totalForceX;
-      y += totalForceY;
+  error.value = 'Click on an edge weight to edit it';
+  setTimeout(() => error.value = '', 2000);
+};
+
+// NEW: Open weight editor
+const editEdgeWeight = (edge) => {
+  editingEdge.value = edge;
+  tempWeight.value = edge.weight;
+  showWeightEditor.value = true;
+  error.value = '';
+};
+
+// NEW: Save edited weight
+const saveEdgeWeight = () => {
+  if (editingEdge.value && tempWeight.value > 0) {
+    editingEdge.value.weight = Number(tempWeight.value);
+    showWeightEditor.value = false;
+    editingEdge.value = null;
+    resetVisualization();
+  }
+};
+
+// NEW: Cancel weight edit
+const cancelWeightEdit = () => {
+  showWeightEditor.value = false;
+  editingEdge.value = null;
+};
+
+// NEW: Increment/decrement weight in editor
+const incrementWeight = () => {
+  tempWeight.value = Number(tempWeight.value) + 1;
+};
+
+const decrementWeight = () => {
+  if (tempWeight.value > 1) {
+    tempWeight.value = Number(tempWeight.value) - 1;
+  }
+};
+
+// NEW: Set quick weight
+const setQuickWeight = (weight) => {
+  tempWeight.value = weight;
+};
+
+const toggleMode = () => {
+  if (mode.value === 'node') {
+    mode.value = 'edge';
+  } else if (mode.value === 'edge') {
+    mode.value = 'weight';
+  } else {
+    mode.value = 'node';
+  }
+  selectedNode.value = null;
+  error.value = '';
+};
+
+const handleEdgeClick = (x, y) => {
+  const clickedNode = nodes.value.find(n => {
+    const dx = n.x - x;
+    const dy = n.y - y;
+    return Math.sqrt(dx * dx + dy * dy) < 30;
+  });
+  
+  if (clickedNode) {
+    if (!selectedNode.value) {
+      selectedNode.value = clickedNode.id;
     } else {
-      break;
+      if (selectedNode.value !== clickedNode.id) {
+        const fromNode = nodes.value.find(n => n.id === selectedNode.value);
+        const toNode = clickedNode;
+        
+        // Check if edge already exists
+        const exists = edges.value.some(e => 
+          e.from === fromNode.label && e.to === toNode.label
+        );
+        
+        if (!exists) {
+          addEdge(fromNode.label, toNode.label, 1); // Default weight of 1
+        } else {
+          error.value = 'Edge already exists';
+          setTimeout(() => error.value = '', 2000);
+        }
+      }
+      selectedNode.value = null;
     }
-    iteration++;
+  }
+};
+
+const calculateNodePosition = (nodeCount) => {
+  const canvas = canvasRef.value;
+  const width = canvas?.width || 800;
+  const height = canvas?.height || 600;
+  const padding = 100;
+  
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxRadius = Math.min(width, height) / 2 - padding;
+  
+  let x, y;
+  
+  if (nodeCount === 0) {
+    x = centerX;
+    y = centerY;
+  } else if (nodeCount <= 8) {
+    const angle = (nodeCount * 2 * Math.PI) / 8;
+    const radius = Math.min(maxRadius * 0.7, 220);
+    x = centerX + radius * Math.cos(angle);
+    y = centerY + radius * Math.sin(angle);
+  } else {
+    const cols = Math.ceil(Math.sqrt(nodeCount * 1.2));
+    const col = nodeCount % cols;
+    const row = Math.floor(nodeCount / cols);
+    const cellWidth = (width - 2 * padding) / cols;
+    const cellHeight = (height - 2 * padding) / Math.ceil(nodeCount / cols);
+    
+    x = padding + col * cellWidth + cellWidth / 2;
+    y = padding + row * cellHeight + cellHeight / 2;
   }
   
   return { x, y };
 };
 
-// Calculate optimal layout position to avoid overlaps
-const calculateNodePosition = (nodeCount) => {
-  const dims = getCanvasDimensions();
-  const padding = 100;
-  const nodeRadius = 35;
-  const minDistance = nodeRadius * 2 + 80; // Increased minimum distance
+const addNodeAtPosition = (x, y, label = '') => {
+  const id = `N${nodeCounter.value++}`;
+  const defaultLabel = String.fromCharCode(65 + (nodes.value.length % 26));
+  const nodeLabel = label || defaultLabel;
   
-  const centerX = dims.width / 2;
-  const centerY = dims.height / 2;
-  const maxRadius = Math.min(dims.width, dims.height) / 2 - padding;
-  
-  let x, y;
-  
-  if (nodeCount === 0) {
-    // First node at center
-    x = centerX;
-    y = centerY;
-  } else if (nodeCount <= 8) {
-    // Circle layout for up to 8 nodes - very well spread
-    const angle = (nodeCount * 2 * Math.PI) / 8;
-    const radius = Math.min(maxRadius * 0.7, 220);
-    x = centerX + radius * Math.cos(angle);
-    y = centerY + radius * Math.sin(angle);
-  } else if (nodeCount <= 16) {
-    // Dual circle layout for 9-16 nodes
-    const innerCount = 8;
-    const isInner = nodeCount <= innerCount;
-    const circleIndex = isInner ? nodeCount : (nodeCount - innerCount);
-    const maxInCircle = isInner ? innerCount : (nodeCount - innerCount);
-    const angle = (circleIndex * 2 * Math.PI) / maxInCircle;
-    const radius = isInner ? Math.min(maxRadius * 0.5, 160) : Math.min(maxRadius * 0.75, 240);
-    x = centerX + radius * Math.cos(angle);
-    y = centerY + radius * Math.sin(angle);
-  } else if (nodeCount <= 32) {
-    // Triple circle layout for 17-32 nodes
-    const layer1Size = 8;
-    const layer2Size = 12;
-    let circleIndex, angle, radius;
-    
-    if (nodeCount <= layer1Size) {
-      circleIndex = nodeCount;
-      angle = (circleIndex * 2 * Math.PI) / layer1Size;
-      radius = 140;
-    } else if (nodeCount <= layer1Size + layer2Size) {
-      circleIndex = nodeCount - layer1Size;
-      angle = (circleIndex * 2 * Math.PI) / layer2Size;
-      radius = 220;
-    } else {
-      circleIndex = nodeCount - layer1Size - layer2Size;
-      const layer3Size = nodeCount - layer1Size - layer2Size;
-      angle = (circleIndex * 2 * Math.PI) / layer3Size;
-      radius = 300;
-    }
-    x = centerX + radius * Math.cos(angle);
-    y = centerY + radius * Math.sin(angle);
-  } else {
-    // Grid layout for 33+ nodes
-    const cols = Math.ceil(Math.sqrt(nodeCount * 1.2));
-    const rows = Math.ceil(nodeCount / cols);
-    const col = nodeCount % cols;
-    const row = Math.floor(nodeCount / cols);
-    
-    const cellWidth = (dims.width - 2 * padding) / cols;
-    const cellHeight = (dims.height - 2 * padding) / rows;
-    
-    x = padding + col * cellWidth + cellWidth / 2 + (Math.random() - 0.5) * cellWidth * 0.2;
-    y = padding + row * cellHeight + cellHeight / 2 + (Math.random() - 0.5) * cellHeight * 0.2;
-  }
-  
-  // Ensure nodes stay within canvas bounds
-  x = Math.max(padding, Math.min(dims.width - padding, x));
-  y = Math.max(padding, Math.min(dims.height - padding, y));
-  
-  // Adjust for collisions with existing nodes using improved algorithm
-  const adjustedPos = adjustForCollisions({ x, y }, nodes.value, minDistance);
-  
-  // Final boundary check
-  adjustedPos.x = Math.max(padding, Math.min(dims.width - padding, adjustedPos.x));
-  adjustedPos.y = Math.max(padding, Math.min(dims.height - padding, adjustedPos.y));
-  
-  return adjustedPos;
-};
-
-// Add node with improved distribution
-const handleAddNode = () => {
-  const name = newNodeName.value.trim().toUpperCase();
-  if (!name) return;
-  if (nodes.value.some(n => n.name === name)) {
-    error.value = 'Node already exists';
+  if (nodes.value.some(n => n.label === nodeLabel)) {
+    error.value = `Node label "${nodeLabel}" already exists`;
+    setTimeout(() => error.value = '', 2000);
     return;
   }
   
-  const nodeCount = nodes.value.length;
-  const { x, y } = calculateNodePosition(nodeCount);
+  nodes.value.push({ 
+    id, 
+    label: nodeLabel, 
+    x, 
+    y 
+  });
   
-  nodes.value.push({ name, x, y });
-  newNodeName.value = '';
-  error.value = '';
+  newNodeLabel.value = '';
   resetVisualization();
 };
 
-// Add edge
-const handleAddEdge = () => {
+const handleAddNodeWithLabel = () => {
+  const label = newNodeLabel.value.trim().toUpperCase();
+  const { x, y } = calculateNodePosition(nodes.value.length);
+  addNodeAtPosition(x, y, label);
+};
+
+// NEW: Helper functions for manual edge weight
+const incrementNewWeight = () => {
+  newEdgeWeight.value = Number(newEdgeWeight.value || 1) + 1;
+};
+
+const decrementNewWeight = () => {
+  if (newEdgeWeight.value > 1) {
+    newEdgeWeight.value = Number(newEdgeWeight.value) - 1;
+  }
+};
+
+const handleAddEdgeManually = () => {
   const from = newEdgeFrom.value.trim().toUpperCase();
   const to = newEdgeTo.value.trim().toUpperCase();
-  const weight = parseFloat(newEdgeWeight.value);
+  const weight = parseFloat(newEdgeWeight.value) || 1;
   
-  if (!from || !to || isNaN(weight)) {
-    error.value = 'Invalid edge data';
+  if (!from || !to) {
+    error.value = 'Select both nodes';
+    setTimeout(() => error.value = '', 2000);
     return;
   }
   
-  if (!nodes.value.some(n => n.name === from) || !nodes.value.some(n => n.name === to)) {
+  if (!nodes.value.some(n => n.label === from) || !nodes.value.some(n => n.label === to)) {
     error.value = 'Nodes must exist';
+    setTimeout(() => error.value = '', 2000);
     return;
   }
   
   if (from === to) {
     error.value = 'Self-loops not allowed in DAG';
+    setTimeout(() => error.value = '', 2000);
     return;
   }
   
+  addEdge(from, to, weight);
+  newEdgeFrom.value = '';
+  newEdgeTo.value = '';
+  newEdgeWeight.value = '1';
+};
+
+// NEW: Update weight from quick edit dropdown
+const updateQuickWeight = () => {
+  const [from, to] = quickEditEdgeFrom.value.split('|');
+  const weight = parseFloat(quickEditWeight.value) || 1;
+  
+  if (!from || !to) {
+    error.value = 'Select an edge first';
+    setTimeout(() => error.value = '', 2000);
+    return;
+  }
+  
+  const edge = edges.value.find(e => e.from === from && e.to === to);
+  if (edge) {
+    edge.weight = weight;
+    resetVisualization();
+    quickEditEdgeFrom.value = '';
+    quickEditWeight.value = '1';
+    error.value = `Updated ${from}→${to} weight to ${weight}`;
+    setTimeout(() => error.value = '', 2000);
+  }
+};
+
+const addEdge = (from, to, weight = 1) => {
   if (edges.value.some(e => e.from === from && e.to === to)) {
     error.value = 'Edge already exists';
+    setTimeout(() => error.value = '', 2000);
     return;
   }
   
   edges.value.push({ from, to, weight });
-  newEdgeFrom.value = '';
-  newEdgeTo.value = '';
-  newEdgeWeight.value = '';
+  resetVisualization();
+};
+
+const generateRandomDAG = () => {
+  nodes.value = [];
+  edges.value = [];
+  sourceNode.value = '';
+  targetNode.value = '';
+  nodeCounter.value = 0;
+  
+  const canvas = canvasRef.value;
+  const numNodes = 6 + Math.floor(Math.random() * 3); // 6-8 nodes
+  const padding = 100;
+  
+  for (let i = 0; i < numNodes; i++) {
+    const angle = (i * 2 * Math.PI) / numNodes;
+    const radius = Math.min(canvas.width, canvas.height) / 2 - padding;
+    const centerX = canvas.width / 2;
+    const centerY = canvas.height / 2;
+    const x = centerX + radius * 0.7 * Math.cos(angle);
+    const y = centerY + radius * 0.7 * Math.sin(angle);
+    
+    const id = `N${nodeCounter.value++}`;
+    const label = String.fromCharCode(65 + i);
+    nodes.value.push({ id, label, x, y });
+  }
+  
+  const numEdges = Math.floor(numNodes * 1.5);
+  const addedEdges = new Set();
+  let attempts = 0;
+  const maxAttempts = numEdges * 3;
+  
+  while (addedEdges.size < numEdges && attempts < maxAttempts) {
+    attempts++;
+    const fromIdx = Math.floor(Math.random() * (numNodes - 1));
+    const toIdx = fromIdx + 1 + Math.floor(Math.random() * (numNodes - fromIdx - 1));
+    
+    const edgeKey = `${fromIdx}-${toIdx}`;
+    
+    if (!addedEdges.has(edgeKey)) {
+      addedEdges.add(edgeKey);
+      const weight = Math.floor(Math.random() * 10) + 1; // Random weight 1-10
+      edges.value.push({
+        from: nodes.value[fromIdx].label,
+        to: nodes.value[toIdx].label,
+        weight: weight
+      });
+    }
+  }
+  
+  sourceNode.value = nodes.value[0].label;
+  
+  resetVisualization();
   error.value = '';
+};
+
+const handleDeleteNode = (nodeId) => {
+  const node = nodes.value.find(n => n.id === nodeId);
+  if (node) {
+    nodes.value = nodes.value.filter(n => n.id !== nodeId);
+    edges.value = edges.value.filter(e => e.from !== node.label && e.to !== node.label);
+    if (sourceNode.value === node.label) sourceNode.value = '';
+    if (targetNode.value === node.label) targetNode.value = '';
+  }
   resetVisualization();
 };
 
-// Delete node
-const handleDeleteNode = (nodeName) => {
-  nodes.value = nodes.value.filter(n => n.name !== nodeName);
-  edges.value = edges.value.filter(e => e.from !== nodeName && e.to !== nodeName);
-  if (sourceNode.value === nodeName) sourceNode.value = '';
-  if (targetNode.value === nodeName) targetNode.value = '';
-  resetVisualization();
-};
-
-// Delete edge
 const handleDeleteEdge = (from, to) => {
   edges.value = edges.value.filter(e => !(e.from === from && e.to === to));
   resetVisualization();
 };
 
-// Check if graph has cycle (DFS-based) and detect negative cycles
 const detectCycle = () => {
   const visited = new Set();
   const recStack = new Set();
-  let cycleEdges = [];
-  let cycleFound = false;
   
   const dfs = (node, path = []) => {
     visited.add(node);
@@ -617,22 +732,18 @@ const detectCycle = () => {
     const outgoing = edges.value.filter(e => e.from === node);
     for (const edge of outgoing) {
       if (!visited.has(edge.to)) {
-        if (dfs(edge.to, [...path])) return true;
+        const result = dfs(edge.to, [...path]);
+        if (result) return result;
       } else if (recStack.has(edge.to)) {
-        // Found a cycle - extract it
         const cycleStart = path.indexOf(edge.to);
         const cycle = path.slice(cycleStart);
-        cycle.push(edge.to); // complete the cycle
+        cycle.push(edge.to);
         
-        // Calculate cycle weight
         let cycleWeight = 0;
         for (let i = 0; i < cycle.length - 1; i++) {
           const e = edges.value.find(ed => ed.from === cycle[i] && ed.to === cycle[i + 1]);
           if (e) cycleWeight += e.weight;
         }
-        
-        cycleEdges = cycle;
-        cycleFound = true;
         
         return { hasCycle: true, isNegative: cycleWeight < 0, cycle, weight: cycleWeight };
       }
@@ -643,17 +754,14 @@ const detectCycle = () => {
   };
   
   for (const node of nodes.value) {
-    if (!visited.has(node.name)) {
-      const result = dfs(node.name);
-      if (result && result.hasCycle) {
-        return result;
-      }
+    if (!visited.has(node.label)) {
+      const result = dfs(node.label);
+      if (result) return result;
     }
   }
   return { hasCycle: false, isNegative: false, cycle: [], weight: 0 };
 };
 
-// Topological sort using DFS
 const topologicalSort = () => {
   const visited = new Set();
   const stack = [];
@@ -670,23 +778,34 @@ const topologicalSort = () => {
   };
   
   for (const node of nodes.value) {
-    if (!visited.has(node.name)) {
-      dfs(node.name);
+    if (!visited.has(node.label)) {
+      dfs(node.label);
     }
   }
   
   return stack.reverse();
 };
 
-// Generate algorithm steps
+const reconstructPath = (source, target, predecessors) => {
+  const path = [];
+  let current = target;
+  while (current) {
+    path.unshift(current);
+    current = predecessors[current];
+  }
+  return path[0] === source ? path : null;
+};
+
 const generateSteps = () => {
   if (nodes.value.length === 0) {
     error.value = 'Add nodes first';
+    setTimeout(() => error.value = '', 2000);
     return;
   }
   
-  if (!sourceNode.value || !nodes.value.some(n => n.name === sourceNode.value)) {
+  if (!sourceNode.value || !nodes.value.some(n => n.label === sourceNode.value)) {
     error.value = 'Select a valid source node';
+    setTimeout(() => error.value = '', 2000);
     return;
   }
   
@@ -694,63 +813,38 @@ const generateSteps = () => {
   
   if (cycleInfo.hasCycle) {
     if (cycleInfo.isNegative) {
-      error.value =
-        `❌ NEGATIVE CYCLE DETECTED!\n\n` +
-        `Cycle: ${cycleInfo.cycle.join(' → ')}\n` +
-        `Total weight: ${cycleInfo.weight}\n\n` +
-        `The DAG shortest path algorithm (Bellman on DAG) cannot be used on graphs with negative cycles. ` +
-        `Negative cycles make shortest paths undefined (you can keep going around the cycle to get infinitely negative distances).\n\n` +
-        `💡 To fix this:\n` +
-        `• Remove the cycle to make it a DAG, or\n` +
-        `• Use Bellman-Ford algorithm which can detect negative cycles (though it still can't find shortest paths when they exist)`;
-      return;
+      error.value = `❌ NEGATIVE CYCLE DETECTED!\n\nCycle: ${cycleInfo.cycle.join(' → ')}\nTotal weight: ${cycleInfo.weight}\n\nThe DAG shortest path algorithm cannot be used on graphs with negative cycles.`;
     } else {
-      error.value =
-        `⚠️ CYCLE DETECTED!\n\n` +
-        `Cycle: ${cycleInfo.cycle.join(' → ')}\n` +
-        `Total weight: ${cycleInfo.weight}\n\n` +
-        `The graph contains a cycle, so it's not a DAG (Directed Acyclic Graph). ` +
-        `The DAG shortest path algorithm requires the graph to be acyclic.\n\n` +
-        `💡 To fix this:\n` +
-        `• Remove one or more edges to break the cycle, or\n` +
-        `• Use Dijkstra's algorithm (if all weights are non-negative), or\n` +
-        `• Use Bellman-Ford algorithm (if you have negative weights)`;
-      return;
+      error.value = `⚠️ CYCLE DETECTED!\n\nCycle: ${cycleInfo.cycle.join(' → ')}\nTotal weight: ${cycleInfo.weight}\n\nThe graph contains a cycle, so it's not a DAG.`;
     }
+    return;
   }
   
   const newSteps = [];
   const distances = {};
   const predecessors = {};
   
-  // Initialize
   nodes.value.forEach(node => {
-    distances[node.name] = node.name === sourceNode.value ? 0 : Infinity;
-    predecessors[node.name] = null;
+    distances[node.label] = node.label === sourceNode.value ? 0 : Infinity;
+    predecessors[node.label] = null;
   });
   
   newSteps.push({
     type: STEP_TYPES.INITIALIZE,
     distances: { ...distances },
     predecessors: { ...predecessors },
-    description: `Initialize: d(${sourceNode.value}) = 0, all others = ∞`,
-    currentNode: null,
-    relaxingEdge: null
+    description: `Initialize: d(${sourceNode.value}) = 0, all others = ∞`
   });
   
-  // Topological sort
   const topoOrder = topologicalSort();
   newSteps.push({
     type: STEP_TYPES.TOPO_SORT,
     distances: { ...distances },
     predecessors: { ...predecessors },
     topoOrder: [...topoOrder],
-    description: `Topological order: ${topoOrder.join(' → ')}`,
-    currentNode: null,
-    relaxingEdge: null
+    description: `Topological order: ${topoOrder.join(' → ')}`
   });
   
-  // Process each node in topological order
   for (const nodeName of topoOrder) {
     newSteps.push({
       type: STEP_TYPES.PROCESS_NODE,
@@ -758,11 +852,9 @@ const generateSteps = () => {
       predecessors: { ...predecessors },
       topoOrder: [...topoOrder],
       currentNode: nodeName,
-      description: `Processing node ${nodeName} (d = ${distances[nodeName] === Infinity ? '∞' : distances[nodeName]})`,
-      relaxingEdge: null
+      description: `Processing node ${nodeName} (d = ${distances[nodeName] === Infinity ? '∞' : distances[nodeName]})`
     });
     
-    // Relax all outgoing edges
     const outgoing = edges.value.filter(e => e.from === nodeName);
     for (const edge of outgoing) {
       const oldDist = distances[edge.to];
@@ -775,7 +867,7 @@ const generateSteps = () => {
         topoOrder: [...topoOrder],
         currentNode: nodeName,
         relaxingEdge: edge,
-        description: `Relax edge ${edge.from}→${edge.to} (weight ${edge.weight}): d(${edge.to}) = ${oldDist === Infinity ? '∞' : oldDist}, d(${edge.from}) + w = ${distances[nodeName] === Infinity ? '∞' : newDist}`,
+        description: `Relax edge ${edge.from}→${edge.to} (weight ${edge.weight})`
       });
       
       if (distances[nodeName] !== Infinity && newDist < oldDist) {
@@ -789,7 +881,7 @@ const generateSteps = () => {
           topoOrder: [...topoOrder],
           currentNode: nodeName,
           relaxingEdge: edge,
-          description: `✓ Update: d(${edge.to}) = ${newDist}, predecessor = ${nodeName}`,
+          description: `✓ Update: d(${edge.to}) = ${newDist}`
         });
       } else {
         newSteps.push({
@@ -799,28 +891,17 @@ const generateSteps = () => {
           topoOrder: [...topoOrder],
           currentNode: nodeName,
           relaxingEdge: edge,
-          description: `✗ No update: ${oldDist === Infinity ? '∞' : oldDist} ≤ ${distances[nodeName] === Infinity ? '∞' : newDist}`,
+          description: `✗ No update`
         });
       }
     }
   }
   
-  // Build path to target if specified
-  let pathDescription = 'Final distances: ';
-  pathDescription += nodes.value.map(n => 
-    `d(${n.name}) = ${distances[n.name] === Infinity ? '∞' : distances[n.name]}`
-  ).join(', ');
-  
-  if (targetNode.value && nodes.value.some(n => n.name === targetNode.value)) {
-    const path = [];
-    let current = targetNode.value;
-    while (current && predecessors[current]) {
-      path.unshift(current);
-      current = predecessors[current];
-    }
-    if (current === sourceNode.value) {
-      path.unshift(sourceNode.value);
-      pathDescription += `\n\nPath from ${sourceNode.value} to ${targetNode.value}: ${path.join(' → ')} (distance: ${distances[targetNode.value]})`;
+  let pathDescription = 'Algorithm complete!';
+  if (targetNode.value && nodes.value.some(n => n.label === targetNode.value)) {
+    const path = reconstructPath(sourceNode.value, targetNode.value, predecessors);
+    if (path) {
+      pathDescription += `\n\nPath: ${path.join(' → ')} (distance: ${distances[targetNode.value]})`;
     }
   }
   
@@ -830,8 +911,6 @@ const generateSteps = () => {
     predecessors: { ...predecessors },
     topoOrder: [...topoOrder],
     description: pathDescription,
-    currentNode: null,
-    relaxingEdge: null,
     finalPath: targetNode.value ? reconstructPath(sourceNode.value, targetNode.value, predecessors) : null
   });
   
@@ -840,141 +919,92 @@ const generateSteps = () => {
   error.value = '';
 };
 
-// Reconstruct path
-const reconstructPath = (source, target, predecessors) => {
-  const path = [];
-  let current = target;
-  while (current) {
-    path.unshift(current);
-    current = predecessors[current];
-  }
-  return path[0] === source ? path : null;
-};
-
-// Reset visualization
 const resetVisualization = () => {
   steps.value = [];
   currentStep.value = 0;
   isPlaying.value = false;
+  selectedNode.value = null;
+  if (playInterval) {
+    clearInterval(playInterval);
+    playInterval = null;
+  }
 };
 
-// Playback controls
-const togglePlayPause = () => isPlaying.value = !isPlaying.value;
-const stepForward = () => currentStep.value < steps.value.length - 1 && currentStep.value++;
-const stepBackward = () => currentStep.value > 0 && currentStep.value--;
+const togglePlayPause = () => {
+  isPlaying.value = !isPlaying.value;
+};
+
+const stepForward = () => {
+  if (currentStep.value < steps.value.length - 1) {
+    currentStep.value++;
+  }
+};
+
+const stepBackward = () => {
+  if (currentStep.value > 0) {
+    currentStep.value--;
+  }
+};
+
 const handleReset = () => {
   nodes.value = [];
   edges.value = [];
   sourceNode.value = '';
   targetNode.value = '';
+  nodeCounter.value = 0;
   resetVisualization();
+  error.value = '';
+  mode.value = 'node';
+  showWeightEditor.value = false;
 };
 
-// Auto-play effect
-watch([isPlaying, speed, () => steps.value.length], () => {
-  let interval;
-  if (isPlaying.value && steps.value.length > 0) {
-    interval = setInterval(() => {
-      if (currentStep.value >= steps.value.length - 1) {
-        isPlaying.value = false;
-        return;
-      }
-      currentStep.value++;
-    }, speed.value);
-  }
-  return () => {
-    if (interval) clearInterval(interval);
-  };
-});
-
-// Canvas drawing
-watch([nodes, edges, steps, currentStep, sourceNode], () => {
+const drawCanvas = () => {
   const canvas = canvasRef.value;
   if (!canvas) return;
   
   const ctx = canvas.getContext('2d');
   const stepData = currentStepData.value;
   
-  // Clear canvas
   ctx.clearRect(0, 0, canvas.width, canvas.height);
   
-  // Determine which edges are part of shortest path tree
   const shortestPathEdges = new Set();
   if (stepData?.type === STEP_TYPES.COMPLETE && stepData.predecessors) {
     Object.entries(stepData.predecessors).forEach(([node, pred]) => {
-      if (pred) {
-        shortestPathEdges.add(`${pred}->${node}`);
-      }
+      if (pred) shortestPathEdges.add(`${pred}->${node}`);
     });
   }
   
-  // Draw edges with enhanced styling
+  // Draw edges
   edges.value.forEach(edge => {
-    const fromNode = nodes.value.find(n => n.name === edge.from);
-    const toNode = nodes.value.find(n => n.name === edge.to);
+    const fromNode = nodes.value.find(n => n.label === edge.from);
+    const toNode = nodes.value.find(n => n.label === edge.to);
     if (!fromNode || !toNode) return;
     
     const edgeKey = `${edge.from}->${edge.to}`;
     const isInShortestPath = shortestPathEdges.has(edgeKey);
-    const isRelaxing = stepData?.relaxingEdge?.from === edge.from && 
-                       stepData?.relaxingEdge?.to === edge.to;
+    const isRelaxing = stepData?.relaxingEdge?.from === edge.from && stepData?.relaxingEdge?.to === edge.to;
     const isInFinalPath = stepData?.finalPath?.includes(edge.from) && 
                           stepData?.finalPath?.includes(edge.to) &&
                           stepData.finalPath.indexOf(edge.to) === stepData.finalPath.indexOf(edge.from) + 1;
     
-    // Hide edges not in shortest path tree when algorithm is complete
     const shouldDim = stepData?.type === STEP_TYPES.COMPLETE && !isInShortestPath;
+    ctx.globalAlpha = shouldDim ? 0.15 : 1;
     
-    if (shouldDim) {
-      ctx.globalAlpha = 0.15;
-    } else {
-      ctx.globalAlpha = 1;
-    }
-    
-    // Calculate arrow with adaptive offsets
     const dx = toNode.x - fromNode.x;
     const dy = toNode.y - fromNode.y;
     const angle = Math.atan2(dy, dx);
-    const length = Math.sqrt(dx * dx + dy * dy);
     
-    // Adaptive offset based on edge length and node radius
     const nodeRadius = 35;
-    const arrowHeadSize = 14;
-    const minOffset = nodeRadius + 5;
-    const maxOffset = Math.max(nodeRadius + 10, Math.min(40, length * 0.15));
+    const startX = fromNode.x + (nodeRadius + 5) * Math.cos(angle);
+    const startY = fromNode.y + (nodeRadius + 5) * Math.sin(angle);
+    const endX = toNode.x - (nodeRadius + 10) * Math.cos(angle);
+    const endY = toNode.y - (nodeRadius + 10) * Math.sin(angle);
     
-    const startX = fromNode.x + minOffset * Math.cos(angle);
-    const startY = fromNode.y + minOffset * Math.sin(angle);
-    const endX = toNode.x - maxOffset * Math.cos(angle);
-    const endY = toNode.y - maxOffset * Math.sin(angle);
-    
-    // Only draw if the line has valid length
-    if (Math.sqrt((endX - startX) ** 2 + (endY - startY) ** 2) < 5) {
-      ctx.globalAlpha = 1;
-      return;
-    }
-    
-    // Draw edge shadow for depth
-    if (!shouldDim) {
-      ctx.shadowColor = 'rgba(0, 0, 0, 0.3)';
-      ctx.shadowBlur = 8;
-      ctx.shadowOffsetX = 2;
-      ctx.shadowOffsetY = 2;
-    }
-    
-    // Edge color and style
-    let gradient;
     if (isInFinalPath) {
-      gradient = ctx.createLinearGradient(startX, startY, endX, endY);
-      gradient.addColorStop(0, '#10b981');
-      gradient.addColorStop(1, '#059669');
-      ctx.strokeStyle = gradient;
+      ctx.strokeStyle = '#10b981';
       ctx.lineWidth = 5;
     } else if (isRelaxing) {
-      gradient = ctx.createLinearGradient(startX, startY, endX, endY);
-      gradient.addColorStop(0, '#f59e0b');
-      gradient.addColorStop(1, '#d97706');
-      ctx.strokeStyle = gradient;
+      ctx.strokeStyle = '#f59e0b';
       ctx.lineWidth = 4;
     } else if (isInShortestPath) {
       ctx.strokeStyle = '#6366f1';
@@ -984,52 +1014,47 @@ watch([nodes, edges, steps, currentStep, sourceNode], () => {
       ctx.lineWidth = 2;
     }
     
-    ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(startX, startY);
     ctx.lineTo(endX, endY);
     ctx.stroke();
     
-    // Reset shadow
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    
-    // Draw arrowhead with fill
-    const headlen = isInFinalPath ? 18 : isRelaxing ? 16 : 14;
+    const headlen = 14;
     const arrowAngle = Math.atan2(endY - startY, endX - startX);
     ctx.beginPath();
     ctx.moveTo(endX, endY);
-    ctx.lineTo(
-      endX - headlen * Math.cos(arrowAngle - Math.PI / 7),
-      endY - headlen * Math.sin(arrowAngle - Math.PI / 7)
-    );
-    ctx.lineTo(
-      endX - headlen * Math.cos(arrowAngle + Math.PI / 7),
-      endY - headlen * Math.sin(arrowAngle + Math.PI / 7)
-    );
+    ctx.lineTo(endX - headlen * Math.cos(arrowAngle - Math.PI / 7), endY - headlen * Math.sin(arrowAngle - Math.PI / 7));
+    ctx.lineTo(endX - headlen * Math.cos(arrowAngle + Math.PI / 7), endY - headlen * Math.sin(arrowAngle + Math.PI / 7));
     ctx.closePath();
     ctx.fillStyle = ctx.strokeStyle;
     ctx.fill();
     
-    // Draw weight label with background
+    // Calculate weight label position
     const midX = (startX + endX) / 2;
     const midY = (startY + endY) / 2;
     const labelAngle = Math.atan2(endY - startY, endX - startX);
-    const offsetX = -25 * Math.sin(labelAngle);
-    const offsetY = 25 * Math.cos(labelAngle);
+    const labelX = midX - 25 * Math.sin(labelAngle);
+    const labelY = midY + 25 * Math.cos(labelAngle);
     
-    const labelX = midX + offsetX;
-    const labelY = midY + offsetY;
+    // Draw weight label with highlight if in weight mode
+    const isWeightMode = mode.value === 'weight';
+    ctx.fillStyle = isInFinalPath ? '#10b981' : isRelaxing ? '#f59e0b' : '#475569';
     
-    // Weight background
-    ctx.fillStyle = isInFinalPath ? '#10b981' : isRelaxing ? '#f59e0b' : isInShortestPath ? '#6366f1' : '#475569';
-    ctx.beginPath();
-    ctx.roundRect(labelX - 18, labelY - 12, 36, 24, 6);
-    ctx.fill();
+    // Make weight label more prominent in weight mode
+    if (isWeightMode) {
+      ctx.fillStyle = '#f59e0b'; // Yellow highlight
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = '#ffffff';
+      ctx.beginPath();
+      ctx.roundRect(labelX - 20, labelY - 15, 40, 30, 8);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      ctx.beginPath();
+      ctx.roundRect(labelX - 18, labelY - 12, 36, 24, 6);
+      ctx.fill();
+    }
     
-    // Weight text
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
@@ -1039,97 +1064,170 @@ watch([nodes, edges, steps, currentStep, sourceNode], () => {
     ctx.globalAlpha = 1;
   });
   
-  // Draw nodes with enhanced styling
+  // Draw nodes
   nodes.value.forEach(node => {
-    const isSource = node.name === sourceNode.value;
-    const isCurrent = stepData?.currentNode === node.name;
-    const isInPath = stepData?.finalPath?.includes(node.name);
-    const distance = stepData?.distances?.[node.name];
+    const isSource = node.label === sourceNode.value;
+    const isCurrent = stepData?.currentNode === node.label;
+    const isInPath = stepData?.finalPath?.includes(node.label);
+    const isSelected = selectedNode.value === node.id;
+    const distance = stepData?.distances?.[node.label];
     
-    // Node shadow for depth
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.4)';
-    ctx.shadowBlur = 12;
-    ctx.shadowOffsetX = 3;
-    ctx.shadowOffsetY = 3;
-    
-    // Outer glow for special states
-    if (isCurrent) {
-      ctx.shadowColor = '#f59e0b';
-      ctx.shadowBlur = 20;
-    } else if (isInPath) {
-      ctx.shadowColor = '#10b981';
-      ctx.shadowBlur = 16;
-    }
-    
-    // Node circle with gradient
     ctx.beginPath();
     ctx.arc(node.x, node.y, 35, 0, 2 * Math.PI);
     
-    let gradient = ctx.createRadialGradient(node.x - 10, node.y - 10, 5, node.x, node.y, 35);
     if (isSource) {
-      gradient.addColorStop(0, '#a78bfa');
-      gradient.addColorStop(1, '#7c3aed');
+      ctx.fillStyle = '#7c3aed';
     } else if (isCurrent) {
-      gradient.addColorStop(0, '#fbbf24');
-      gradient.addColorStop(1, '#f59e0b');
+      ctx.fillStyle = '#f59e0b';
     } else if (isInPath) {
-      gradient.addColorStop(0, '#34d399');
-      gradient.addColorStop(1, '#10b981');
+      ctx.fillStyle = '#10b981';
+    } else if (isSelected) {
+      ctx.fillStyle = '#22c55e';
     } else {
-      gradient.addColorStop(0, '#60a5fa');
-      gradient.addColorStop(1, '#2563eb');
+      ctx.fillStyle = '#475569';
+    }
+    ctx.fill();
+    
+    // Draw selection ring
+    if (isSelected) {
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 4;
+      ctx.stroke();
     }
     
-    ctx.fillStyle = gradient;
-    ctx.fill();
-    
-    // Node border
-    ctx.strokeStyle = '#ffffff';
-    ctx.lineWidth = isCurrent ? 5 : 3;
-    ctx.stroke();
-    
-    // Reset shadow
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    
-    // Inner highlight
-    ctx.beginPath();
-    ctx.arc(node.x - 8, node.y - 8, 8, 0, 2 * Math.PI);
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-    ctx.fill();
-    
-    // Node name
     ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 20px sans-serif';
+    ctx.font = 'bold 16px sans-serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(node.name, node.x, node.y);
+    ctx.fillText(node.label, node.x, node.y - 5);
     
-    // Distance label with background
-    if (stepData && distance !== undefined) {
-      const distText = distance === Infinity ? '∞' : distance.toString();
-      const labelY = node.y - 52;
-      
-      // Measure text for background
-      ctx.font = 'bold 15px sans-serif';
-      const textWidth = ctx.measureText(`d: ${distText}`).width;
-      
-      // Distance background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-      ctx.beginPath();
-      ctx.roundRect(node.x - textWidth/2 - 8, labelY - 10, textWidth + 16, 20, 10);
-      ctx.fill();
-      
-      // Distance text
-      ctx.fillStyle = distance === Infinity ? '#f87171' : '#34d399';
-      ctx.fillText(`d: ${distText}`, node.x, labelY);
+    if (distance !== undefined) {
+      ctx.font = '12px sans-serif';
+      ctx.fillText(distance === Infinity ? '∞' : distance, node.x, node.y + 12);
     }
   });
+};
+
+// Watch for changes and redraw canvas
+watch([nodes, edges, steps, currentStep, sourceNode, selectedNode, mode], () => {
+  drawCanvas();
+}, { deep: true });
+
+// Auto-play effect
+watch(isPlaying, (newValue) => {
+  if (newValue) {
+    playInterval = setInterval(() => {
+      if (currentStep.value >= steps.value.length - 1) {
+        isPlaying.value = false;
+        if (playInterval) {
+          clearInterval(playInterval);
+          playInterval = null;
+        }
+      } else {
+        currentStep.value++;
+      }
+    }, speed.value);
+  } else {
+    if (playInterval) {
+      clearInterval(playInterval);
+      playInterval = null;
+    }
+  }
+});
+
+watch(speed, () => {
+  if (isPlaying.value) {
+    if (playInterval) clearInterval(playInterval);
+    playInterval = setInterval(() => {
+      if (currentStep.value >= steps.value.length - 1) {
+        isPlaying.value = false;
+        if (playInterval) {
+          clearInterval(playInterval);
+          playInterval = null;
+        }
+      } else {
+        currentStep.value++;
+      }
+    }, speed.value);
+  }
+});
+
+onMounted(() => {
+  drawCanvas();
+});
+
+onUnmounted(() => {
+  if (playInterval) clearInterval(playInterval);
 });
 </script>
 
 <style scoped>
-/* Component-specific styles */
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(139, 92, 246, 0.5);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(139, 92, 246, 0.7);
+}
+
+/* Range input styling */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: rgba(255, 255, 255, 0.1);
+  height: 8px;
+  border-radius: 4px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  background-color: #8b5cf6;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+input[type="range"]::-moz-range-track {
+  background: rgba(255, 255, 255, 0.1);
+  height: 8px;
+  border-radius: 4px;
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  background-color: #8b5cf6;
+  border-radius: 50%;
+  border: 2px solid white;
+}
+
+/* Modal animations */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity 0.2s ease;
+}
+
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
 </style>
